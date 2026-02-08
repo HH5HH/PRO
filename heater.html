@@ -1066,7 +1066,7 @@
 
       <label title="Filter visible signals">
         Search
-        <input id="searchBox" type="text" placeholder="authz, mvpd, latency, dc, device…" style="min-width:200px;" />
+        <input id="searchBox" type="text" placeholder="authz, mvpd, latency, dc, device, reason…" style="min-width:200px;" />
       </label>
 
       <span class="tag" id="matchCount" title="Signals shown">—</span>
@@ -1164,6 +1164,13 @@
         <h3>Device report (by day) — By Device</h3>
       </div>
       <div id="deviceReportTableWrap"></div>
+    </div>
+
+    <div id="reasonReportWrap" class="dc-report-wrap reason-report-wrap" aria-label="Reason report (event • reason counts)">
+      <div class="dc-report-head">
+        <h3>Reason report — Only reasons that need attention (≠ None), 3 clicks to RCA</h3>
+      </div>
+      <div id="reasonReportTableWrap"></div>
     </div>
   </div>
 
@@ -2612,6 +2619,10 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
       event_reason_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason',
       event_reason_hour_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc',
+      event_reason_day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason',
+      event_reason_day_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason/dc',
+      event_reason_minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason',
+      event_reason_minute_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason/dc',
 
       // Device (by day) — requestor required; MVPD optional.
       device_day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device',
@@ -2650,6 +2661,21 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const f = getActiveFilters();
       if (f.mvpdIds && f.mvpdIds.length) return '…/proxy/mvpd/device/dc (requestor + MVPD)';
       return '…/requestor-id/device/os-family/dc (requestor)';
+    }
+
+    /** Reason (event • reason counts): granularity from win.bucketSize; use _dc for DC column. */
+    function pickReasonDataSourceUrl(win) {
+      const bucketSize = (win && win.bucketSize) || 'hour';
+      const useDc = true;
+      if (bucketSize === 'day') return useDc ? DATA_SOURCES.event_reason_day_dc : DATA_SOURCES.event_reason_day;
+      if (bucketSize === 'minute') return useDc ? DATA_SOURCES.event_reason_minute_dc : DATA_SOURCES.event_reason_minute;
+      return useDc ? DATA_SOURCES.event_reason_hour_dc : DATA_SOURCES.event_reason_hour;
+    }
+
+    function getReasonSourceLabel(win) {
+      const bucketSize = (win && win.bucketSize) || 'hour';
+      const base = bucketSize === 'day' ? '…/day/event/…/reason' : bucketSize === 'minute' ? '…/minute/event/…/reason' : '…/hour/event/…/reason';
+      return base + ' (dc)';
     }
 
     const CORE_SIGNALS = [
@@ -3411,21 +3437,18 @@ async function dcrRegisterClient(softwareStatement, appName) {
       return { url, postFilter, name };
     }
 
+    /** True if reason is None/(none)/blank. Live event monitoring: only show rows where !isReasonNone (reason needs attention). */
+    function isReasonNone(row) {
+      if (!row || typeof row !== 'object') return true;
+      const r = (row.reason ?? '').toString().trim().toLowerCase();
+      return r === '' || r === 'none' || r === '(none)';
+    }
+
     function shouldHidePositiveNoneReasonRow(row) {
-      if (!row || typeof row !== 'object') return false;
-
-      const reason = (row.reason ?? '').toString().trim().toLowerCase();
-      if (reason !== 'none' && reason !== '(none)') return false;
-
-      const eventNorm = (row.event ?? '')
-        .toString()
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '');
-      if (!eventNorm) return false;
-
-      // Positive event family: request/granted style events ending in r/g (e.g. authnr/authng).
-      return eventNorm.endsWith('r') || eventNorm.endsWith('g');
+      return isReasonNone(row) && (() => {
+        const eventNorm = (row.event ?? '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        return eventNorm.endsWith('r') || eventNorm.endsWith('g') || eventNorm.endsWith('p');
+      })();
     }
 
     function normalizeEventCode(eventVal) {
@@ -3588,6 +3611,73 @@ async function dcrRegisterClient(softwareStatement, appName) {
         onFooterCsv: (tableState) => {
           const stamp = new Date().toISOString().replace(/[:.]/g, '-');
           downloadEsmCsv({ url: deviceRawEsmUrl, name: `device-report-raw-${base}-${sourceToken}-${stamp}`, state: tableState });
+        }
+      });
+      reportWrap.style.display = 'block';
+    }
+
+    /**
+     * Build Reason report rows from raw event/reason ESM report (count per event, reason, dc, mvpd).
+     * Only includes reasons that need attention (reason != None). 3 clicks to RCA, live event monitoring.
+     */
+    function buildReasonReportRows(reasonRows) {
+      if (!Array.isArray(reasonRows)) return [];
+      const attention = reasonRows.filter(row => !isReasonNone(row));
+      const hasDc = attention.some(r => r && Object.prototype.hasOwnProperty.call(r, 'dc'));
+      const hasMvpd = attention.some(r => r && Object.prototype.hasOwnProperty.call(r, 'mvpd'));
+      const byKey = new Map();
+      for (const row of attention) {
+        const reason = (row.reason ?? '').toString().trim() || '—';
+        const event = (row.event ?? '').toString().trim() || '—';
+        const dc = hasDc ? ((row.dc ?? '').toString().trim() || '—') : '';
+        const mvpd = hasMvpd ? ((row.mvpd ?? '').toString().trim() || '—') : '';
+        const key = `${reason}|${event}|${dc}|${mvpd}`;
+        if (!byKey.has(key)) byKey.set(key, { reason, event, dc, mvpd, count: 0 });
+        byKey.get(key).count += safeNum(row.count);
+      }
+      const rows = [...byKey.values()];
+      rows.sort((a, b) => (b.count - a.count) || String(a.reason).localeCompare(String(b.reason)));
+      return rows;
+    }
+
+    function renderReasonReportPanel(reasonRows, win, reasonSourceLabel) {
+      const wrap = document.getElementById('reasonReportTableWrap');
+      const reportWrap = document.getElementById('reasonReportWrap');
+      if (!wrap || !reportWrap) return;
+      clear(wrap);
+      const rows = buildReasonReportRows(reasonRows);
+      const sourceNote = (reasonSourceLabel && reasonSourceLabel.trim()) ? reasonSourceLabel.trim() : getReasonSourceLabel(win);
+      const bucketLabel = (win && win.bucketSize) ? (win.bucketSize === 'minute' ? 'minute' : win.bucketSize === 'day' ? 'day' : 'hour') : 'hour';
+      const titleHtml = `<strong>Reason report</strong> — Source: <span class="kbd">${sourceNote}</span> · Only reasons that need attention (≠ None), ${bucketLabel} window · 3 clicks to RCA`;
+      if (!rows.length) {
+        const p = document.createElement('p');
+        p.className = 'smallnote';
+        p.style.padding = '14px 16px';
+        p.textContent = 'No reasons that need attention (≠ None) in this window. Try selecting a Requestor or MVPD and refresh.';
+        wrap.appendChild(p);
+        reportWrap.style.display = 'block';
+        return;
+      }
+      const hasDc = rows.some(r => r.dc !== undefined && r.dc !== '');
+      const hasMvpd = rows.some(r => r.mvpd !== undefined && r.mvpd !== '');
+      const columns = [
+        { label: 'Reason', isNum: false, cellValue: (r) => r.reason, sortValue: (r) => (r.reason || '').toString().toLowerCase() },
+        { label: 'Event', isNum: false, cellValue: (r) => r.event, sortValue: (r) => (r.event || '').toString().toLowerCase() },
+        ...(hasDc ? [{ label: 'DC', isNum: false, cellValue: (r) => r.dc || '—', sortValue: (r) => (r.dc || '').toString().toLowerCase() }] : []),
+        ...(hasMvpd ? [{ label: 'MVPD', isNum: false, cellValue: (r) => r.mvpd || '—', sortValue: (r) => (r.mvpd || '').toString().toLowerCase() }] : []),
+        { label: 'Count', isNum: true, cellValue: (r) => fmtInt(r.count), sortValue: (r) => r.count }
+      ];
+      const reasonRawEsmUrl = appendFilterParams(withTimeParams(pickReasonDataSourceUrl(win), win));
+      const base = safeFileToken(state.selectedProgrammerName || state.selectedProgrammerId || 'esm');
+      const f = getActiveFilters();
+      const sourceToken = (f.reqIds && f.reqIds.length) ? 'requestor' : (f.mvpdIds && f.mvpdIds.length) ? 'mvpd' : 'reason';
+      createSortableTable(wrap, titleHtml, columns, rows, {
+        footerCsv: true,
+        footerCsvLabel: 'CSV',
+        footerCsvTitle: 'Export raw ESM that powers this table',
+        onFooterCsv: (tableState) => {
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+          downloadEsmCsv({ url: reasonRawEsmUrl, name: `reason-report-raw-${base}-${sourceToken}-${stamp}`, state: tableState, postFilter: (row) => !isReasonNone(row) });
         }
       });
       reportWrap.style.display = 'block';
@@ -4042,15 +4132,13 @@ async function dcrRegisterClient(softwareStatement, appName) {
     }
 
     async function loadReasonSummaryByDim(dimKey, signal, ctx, win, bucketKey) {
-      const none = { byDim: new Map(), note: `reasons (${rcaEventModeLabel(signal)}): no data in current window` };
+      const none = { byDim: new Map(), note: 'reasons that need attention (≠ None): no data in current window' };
 
       const fallbackKey = win?.buckets?.[win.buckets.length - 1]?.key || '';
       const requestedKey = normalizeDrillBucketKey(win, bucketKey || fallbackKey);
       if (!requestedKey) return none;
 
-      const reasonUrl = (dimKey === 'dc' || ctx?.dimKey === 'dc')
-        ? DATA_SOURCES.event_reason_hour_dc
-        : DATA_SOURCES.event_reason_hour;
+      const reasonUrl = pickReasonDataSourceUrl(win);
 
       let reasonRows = [];
       try {
@@ -4060,7 +4148,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         return none;
       }
 
-      const scopedRows = filterRowsByCtx(reasonRows, ctx).filter(row => isEventAllowedForRca(signal, row.event));
+      const scopedRows = filterRowsByCtx(reasonRows, ctx).filter(row => !isReasonNone(row));
       if (!scopedRows.length) return none;
 
       const bucketRows = new Map();
@@ -5219,6 +5307,24 @@ async function dcrRegisterClient(softwareStatement, appName) {
         if (deviceReportWrap) deviceReportWrap.style.display = 'none';
         const deviceTableWrap = document.getElementById('deviceReportTableWrap');
         if (deviceTableWrap) clear(deviceTableWrap);
+      }
+
+      const reasonReportWrap = document.getElementById('reasonReportWrap');
+      try {
+        const reasonUrl = pickReasonDataSourceUrl(win);
+        const reasonRows = await fetchReport(reasonUrl, win);
+        renderReasonReportPanel(reasonRows, win, getReasonSourceLabel(win));
+      } catch (e) {
+        if (reasonReportWrap) reasonReportWrap.style.display = 'block';
+        const reasonTableWrap = document.getElementById('reasonReportTableWrap');
+        if (reasonTableWrap) {
+          clear(reasonTableWrap);
+          const p = document.createElement('p');
+          p.className = 'smallnote';
+          p.style.padding = '14px 16px';
+          p.textContent = 'Reason report unavailable: ' + (e?.message || e);
+          reasonTableWrap.appendChild(p);
+        }
       }
 
       state.lastRenderModel = exportModel;
