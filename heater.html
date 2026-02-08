@@ -390,6 +390,34 @@
       padding: 20px;
     }
 
+    .dc-report-wrap {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px var(--shadow);
+    }
+    .dc-report-wrap .dc-report-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+    .dc-report-wrap .dc-report-head h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+    .dc-report-wrap .esm-table-wrapper {
+      margin-top: 0;
+    }
+
     .heatmap-wrap {
       border: 1px solid var(--border);
       background: var(--panel2);
@@ -483,11 +511,12 @@
     }
 
     .row.header {
-      background: rgba(255,255,255,.02);
+      background: var(--panel2);
       position: sticky;
       top: 0;
       z-index: 3;
       border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 var(--border);
     }
 
     .signal-label {
@@ -1037,7 +1066,7 @@
 
       <label title="Filter visible signals">
         Search
-        <input id="searchBox" type="text" placeholder="authz, mvpd, latency, dc…" style="min-width:200px;" />
+        <input id="searchBox" type="text" placeholder="authz, mvpd, latency, dc, device…" style="min-width:200px;" />
       </label>
 
       <span class="tag" id="matchCount" title="Signals shown">—</span>
@@ -1121,6 +1150,20 @@
       <div class="grid">
         <div id="grid" class="grid-inner"></div>
       </div>
+    </div>
+
+    <div id="dcReportWrap" class="dc-report-wrap" aria-label="DataCenter report">
+      <div class="dc-report-head">
+        <h3>DataCenter report (ESM URLs with /dc)</h3>
+      </div>
+      <div id="dcReportTableWrap"></div>
+    </div>
+
+    <div id="deviceReportWrap" class="dc-report-wrap device-report-wrap" aria-label="Device report (By Device)" style="display:none;">
+      <div class="dc-report-head">
+        <h3>Device report (by day) — By Device</h3>
+      </div>
+      <div id="deviceReportTableWrap"></div>
     </div>
   </div>
 
@@ -2392,6 +2435,31 @@ async function dcrRegisterClient(softwareStatement, appName) {
       };
     }
 
+    /** Day window for device (by day) ESM: last N days, one bucket per day. */
+    function computeDayWindow(days = 7) {
+      const n = Math.max(1, Math.min(31, Number(days) || 7));
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - (n - 1));
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      const buckets = [];
+      for (let i = 0; i < n; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+        buckets.push({ start: new Date(d), key, label: key.slice(5) });
+      }
+      return {
+        start,
+        end,
+        buckets,
+        startIso: iso(start),
+        endIso: iso(end),
+        bucketSize: 'day'
+      };
+    }
+
     /* ---------- ESM Fetch Helpers + Cache ---------- */
     const CACHE = new Map(); // key -> { ts, report }
     const CACHE_TTL_MS = 20_000;
@@ -2465,12 +2533,15 @@ async function dcrRegisterClient(softwareStatement, appName) {
     }
 
     function bucketKeyForRow(row, win) {
-      // We only bucket by hour/minute depending on win.bucketSize.
       const y = safeNum(row.year) || 1970;
       const m = safeNum(row.month) || 1;
       const d = safeNum(row.day) || 1;
-      const h = safeNum(row.hour) || 0;
 
+      if (win.bucketSize === 'day') {
+        return `${y}-${pad2(m)}-${pad2(d)}`;
+      }
+
+      const h = safeNum(row.hour) || 0;
       if (win.bucketSize === 'hour') {
         return hourKeyFromParts(y,m,d,h);
       }
@@ -2540,7 +2611,14 @@ async function dcrRegisterClient(softwareStatement, appName) {
       dc_hour_mvpd_requestor: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/dc',
 
       event_reason_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason',
-      event_reason_hour_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc'
+      event_reason_hour_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc',
+
+      // Device (by day) — requestor required; MVPD optional.
+      device_day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device',
+      device_day_os: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family',
+      device_day_os_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family/dc',
+      device_day_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device',
+      device_day_mvpd_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device/dc'
     };
     function getActiveFilters() {
       const reqSel = document.getElementById('fltr_requestorid');
@@ -2559,6 +2637,19 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (f.reqIds && f.reqIds.length) return DATA_SOURCES.dc_hour_mvpd_requestor;
       if (f.mvpdIds && f.mvpdIds.length) return DATA_SOURCES.dc_hour_mvpd;
       return DATA_SOURCES.dc_hour;
+    }
+
+    /** Device (by day) ESM: requestor required; with MVPD filter use proxy/mvpd/device/dc. */
+    function pickDeviceDataSourceUrl(filters = null) {
+      const f = filters || getActiveFilters();
+      if (f.mvpdIds && f.mvpdIds.length) return DATA_SOURCES.device_day_mvpd_dc;
+      return DATA_SOURCES.device_day_os_dc;
+    }
+
+    function getDeviceSourceLabel() {
+      const f = getActiveFilters();
+      if (f.mvpdIds && f.mvpdIds.length) return '…/proxy/mvpd/device/dc (requestor + MVPD)';
+      return '…/requestor-id/device/os-family/dc (requestor)';
     }
 
     const CORE_SIGNALS = [
@@ -2670,37 +2761,67 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (!Number.isFinite(x)) return '—';
       return (x / 1000).toFixed(2) + ' s';
     }
+    /** Latency in ms as integer (for DC report: avg_mvpd_authz_latency_ms). */
+    function fmtMsInt(x) {
+      if (!Number.isFinite(x)) return '—';
+      return Math.round(x) + ' ms';
+    }
     function fmtInt(x) {
       if (!Number.isFinite(x)) return '—';
       return Math.round(x).toLocaleString();
     }
 
     /* ---------- Status Classification ---------- */
-    function classify(value, thresholds, typeHint='') {
-      if (!Number.isFinite(value)) return 'unk';
+    /** Infer "better" direction when thresholds.better is missing (positive = higher is better). */
+    function inferBetter(typeHint, thresholds) {
+      if (thresholds && (thresholds.better === 'higher' || thresholds.better === 'lower'))
+        return thresholds.better;
+      if (typeHint === 'latency' || typeHint === 'anomaly') return 'lower';
+      return 'higher';
+    }
 
-      // Special: anomaly uses ratio where > threshold means bad
+    /** Normalize value for classification: rate in 0–100 becomes 0–1 so thresholds (0–1) match. */
+    function normalizeValueForClassify(value, typeHint) {
+      if (!Number.isFinite(value)) return NaN;
+      if (typeHint === 'rate' && value > 1.5) return value / 100;
+      return value;
+    }
+
+    function classify(value, thresholds, typeHint='') {
+      const v = normalizeValueForClassify(value, typeHint);
+      if (!Number.isFinite(v)) return 'unk';
+      if (!thresholds || typeof thresholds !== 'object') return 'unk';
+
+      const g = Number(thresholds.green);
+      const a = Number(thresholds.amber);
+
+      // Special: anomaly uses ratio where > threshold means bad (lower ratio is better)
       if (typeHint === 'anomaly') {
-        const ratio = value;
-        if (ratio <= thresholds.green) return 'good';
-        if (ratio <= thresholds.amber) return 'warn';
+        if (Number.isFinite(g) && v <= g) return 'good';
+        if (Number.isFinite(a) && v <= a) return 'warn';
         return 'bad';
       }
 
-      const better = thresholds.better || 'higher';
-      const g = thresholds.green;
-      const a = thresholds.amber;
+      const better = inferBetter(typeHint, thresholds);
 
       if (better === 'higher') {
-        if (value >= g) return 'good';
-        if (value >= a) return 'warn';
+        if (Number.isFinite(g) && v >= g) return 'good';
+        if (Number.isFinite(a) && v >= a) return 'warn';
         return 'bad';
       }
 
-      // lower is better
-      if (value <= g) return 'good';
-      if (value <= a) return 'warn';
+      if (Number.isFinite(g) && v <= g) return 'good';
+      if (Number.isFinite(a) && v <= a) return 'warn';
       return 'bad';
+    }
+
+    /** Classify using the signal's full context. Use for RCA when we need to re-derive (e.g. no bucket.status). */
+    function classifyForSignal(signal, value) {
+      if (!signal || !Number.isFinite(value)) return 'unk';
+      const thresholds = signal.thresholds || null;
+      const typeHint = signal.type || 'rate';
+      if (!thresholds || typeof thresholds !== 'object') return (typeHint === 'rate' && normalizeValueForClassify(value, typeHint) >= 0.95 ? 'good' : 'unk');
+      return classify(value, thresholds, typeHint);
     }
 
 
@@ -3223,6 +3344,50 @@ async function dcrRegisterClient(softwareStatement, appName) {
       return `Last ${Math.floor(ageMin / 60)} Hours`;
     }
 
+    /** Window duration in minutes from actual start/end (so correct for any bucket size). */
+    function getWindowDurationMinutes(win) {
+      if (!win || !win.start || !win.end) return Math.max(1, (win?.buckets?.length || 12) * 60);
+      const ms = win.end.getTime() - win.start.getTime();
+      return Math.max(1, Math.round(ms / 60_000));
+    }
+
+    /** Short label for which ESM DC endpoint is used (for display). Dynamic from getActiveFilters(). */
+    function getDcSourceLabel() {
+      const f = getActiveFilters();
+      if (f.reqIds && f.reqIds.length) return '…/proxy/mvpd/requestor-id/dc (requestor filter)';
+      if (f.mvpdIds && f.mvpdIds.length) return '…/proxy/mvpd/dc (mvpd filter)';
+      return '…/hour/dc';
+    }
+
+    /**
+     * Build DataCenter report rows: Region (dc), RPM, Latency (ms).
+     * Caller must pass dcIdx from the same ESM DC URL as current context (pickDcDataSourceUrl()).
+     * ESM: authz-latency is sum(ms) per row; we use avg_mvpd_authz_latency_ms = authz-latency / max(1, authz-attempts)
+     * per bucket, then weight by attempts across buckets for overall avg latency.
+     */
+    function buildDcReportRows(dcIdx, win) {
+      if (!dcIdx || !win) return [];
+      const dimMap = dcIdx.byDim.get('dc');
+      if (!dimMap) return [];
+      const durationMinutes = getWindowDurationMinutes(win);
+      const rows = [];
+      for (const [region, bucketMap] of dimMap.entries()) {
+        let totalAttempts = 0;
+        let weightedLatSum = 0;
+        for (const agg of bucketMap.values()) {
+          const attempts = safeNum(agg['authz-attempts']);
+          const avgMs = safeNum(agg['authz-latency']);
+          totalAttempts += attempts;
+          weightedLatSum += avgMs * attempts;
+        }
+        const avgLatencyMs = totalAttempts > 0 ? weightedLatSum / totalAttempts : NaN;
+        const rpm = totalAttempts / durationMinutes;
+        rows.push({ region: (region === '(blank)' ? '—' : region), rpm, latencyMs: avgLatencyMs, attempts: totalAttempts });
+      }
+      rows.sort((a, b) => (b.rpm - a.rpm) || String(a.region).localeCompare(String(b.region)));
+      return rows;
+    }
+
     function rowsHaveDim(rows, dimKey) {
       return Array.isArray(rows) && rows.some(r => r && Object.prototype.hasOwnProperty.call(r, dimKey));
     }
@@ -3305,6 +3470,128 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     /* ---------- Rendering ---------- */
     function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); }
+
+    function renderDcReportPanel(dcIdx, win, dcSourceLabel) {
+      const wrap = document.getElementById('dcReportTableWrap');
+      if (!wrap) return;
+      clear(wrap);
+      const rows = buildDcReportRows(dcIdx, win);
+      const sourceNote = (dcSourceLabel && dcSourceLabel.trim()) ? dcSourceLabel.trim() : getDcSourceLabel();
+      const titleHtml = `<strong>DataCenter report</strong> — Source: <span class="kbd">${sourceNote}</span> · avg latency = authz-latency ÷ authz-attempts (ms) · RPM = requests/min over window`;
+      if (!rows.length) {
+        const p = document.createElement('p');
+        p.className = 'smallnote';
+        p.style.padding = '14px 16px';
+        p.textContent = 'No DataCenter data for this window.';
+        wrap.appendChild(p);
+        return;
+      }
+      const columns = [
+        { label: 'Region', isNum: false, cellValue: (r) => r.region, sortValue: (r) => (r.region || '').toString().toLowerCase() },
+        { label: 'RPM', isNum: true, cellValue: (r) => fmtInt(r.rpm), sortValue: (r) => r.rpm },
+        { label: 'Latency (ms)', isNum: true, cellValue: (r) => fmtMsInt(r.latencyMs), sortValue: (r) => r.latencyMs }
+      ];
+      const dcRawEsmUrl = appendFilterParams(withTimeParams(pickDcDataSourceUrl(), win));
+      const base = safeFileToken(state.selectedProgrammerName || state.selectedProgrammerId || 'esm');
+      const f = getActiveFilters();
+      const sourceToken = (f.reqIds && f.reqIds.length) ? 'requestor' : (f.mvpdIds && f.mvpdIds.length) ? 'mvpd' : 'hour';
+      createSortableTable(wrap, titleHtml, columns, rows, {
+        footerCsv: true,
+        footerCsvLabel: 'CSV',
+        footerCsvTitle: 'Export raw ESM that powers this table (same request as table)',
+        onFooterCsv: (tableState) => {
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+          downloadEsmCsv({ url: dcRawEsmUrl, name: `dc-report-raw-${base}-${sourceToken}-${stamp}`, state: tableState });
+        }
+      });
+    }
+
+    /**
+     * Build Device report rows from raw day-based ESM report.
+     * Groups by device (and optionally os-family, dc); aggregates authz attempts/success/latency; computes AuthZ %, Latency (ms), RPM.
+     */
+    function buildDeviceReportRows(deviceRows, dayWin) {
+      if (!Array.isArray(deviceRows) || !dayWin) return [];
+      const durationMinutes = getWindowDurationMinutes(dayWin);
+      const hasOsFamily = deviceRows.some(r => r && Object.prototype.hasOwnProperty.call(r, 'os-family'));
+      const hasDc = deviceRows.some(r => r && Object.prototype.hasOwnProperty.call(r, 'dc'));
+      const byKey = new Map();
+      for (const row of deviceRows) {
+        const device = (row.device ?? '').toString().trim() || '—';
+        const osFamily = hasOsFamily ? ((row['os-family'] ?? '').toString().trim() || '—') : '';
+        const dc = hasDc ? ((row.dc ?? '').toString().trim() || '—') : '';
+        const key = `${device}|${osFamily}|${dc}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, { device, osFamily, dc, authzAttempts: 0, authzSuccessful: 0, latSum: 0 });
+        }
+        const agg = byKey.get(key);
+        const attempts = safeNum(row['authz-attempts']);
+        agg.authzAttempts += attempts;
+        agg.authzSuccessful += safeNum(row['authz-successful']);
+        agg.latSum += safeNum(row['authz-latency']);
+      }
+      const rows = [];
+      for (const agg of byKey.values()) {
+        const attempts = agg.authzAttempts;
+        const authzRate = attempts > 0 ? agg.authzSuccessful / attempts : NaN;
+        const latencyMs = attempts > 0 ? agg.latSum / Math.max(1, attempts) : NaN;
+        const rpm = attempts / durationMinutes;
+        rows.push({
+          device: agg.device,
+          osFamily: agg.osFamily,
+          dc: agg.dc,
+          authzRate,
+          latencyMs,
+          rpm,
+          attempts
+        });
+      }
+      rows.sort((a, b) => (b.rpm - a.rpm) || String(a.device).localeCompare(String(b.device)));
+      return rows;
+    }
+
+    function renderDeviceReportPanel(deviceRows, dayWin, deviceSourceLabel) {
+      const wrap = document.getElementById('deviceReportTableWrap');
+      const reportWrap = document.getElementById('deviceReportWrap');
+      if (!wrap || !reportWrap) return;
+      clear(wrap);
+      const rows = buildDeviceReportRows(deviceRows, dayWin);
+      const sourceNote = (deviceSourceLabel && deviceSourceLabel.trim()) ? deviceSourceLabel.trim() : getDeviceSourceLabel();
+      const titleHtml = `<strong>Device report</strong> — Source: <span class="kbd">${sourceNote}</span> · By day (last ${dayWin.buckets.length} days) · AuthZ % = authz-successful ÷ authz-attempts · Latency (ms) · RPM = requests/min over window`;
+      if (!rows.length) {
+        const p = document.createElement('p');
+        p.className = 'smallnote';
+        p.style.padding = '14px 16px';
+        p.textContent = 'No Device data. Select a Requestor to see the Device report (by day).';
+        wrap.appendChild(p);
+        reportWrap.style.display = 'block';
+        return;
+      }
+      const hasOs = rows.some(r => r.osFamily !== undefined && r.osFamily !== '');
+      const hasDc = rows.some(r => r.dc !== undefined && r.dc !== '');
+      const columns = [
+        { label: 'Device', isNum: false, cellValue: (r) => r.device, sortValue: (r) => (r.device || '').toString().toLowerCase() },
+        ...(hasOs ? [{ label: 'OS family', isNum: false, cellValue: (r) => r.osFamily || '—', sortValue: (r) => (r.osFamily || '').toString().toLowerCase() }] : []),
+        ...(hasDc ? [{ label: 'DC', isNum: false, cellValue: (r) => r.dc || '—', sortValue: (r) => (r.dc || '').toString().toLowerCase() }] : []),
+        { label: 'AuthZ %', isNum: true, cellValue: (r) => Number.isFinite(r.authzRate) ? (r.authzRate * 100).toFixed(2) + '%' : '—', sortValue: (r) => r.authzRate },
+        { label: 'Latency (ms)', isNum: true, cellValue: (r) => fmtMsInt(r.latencyMs), sortValue: (r) => r.latencyMs },
+        { label: 'RPM', isNum: true, cellValue: (r) => fmtInt(r.rpm), sortValue: (r) => r.rpm }
+      ];
+      const deviceRawEsmUrl = appendFilterParams(withTimeParams(pickDeviceDataSourceUrl(), dayWin));
+      const base = safeFileToken(state.selectedProgrammerName || state.selectedProgrammerId || 'esm');
+      const f = getActiveFilters();
+      const sourceToken = (f.reqIds && f.reqIds.length) ? 'requestor' : (f.mvpdIds && f.mvpdIds.length) ? 'mvpd' : 'day';
+      createSortableTable(wrap, titleHtml, columns, rows, {
+        footerCsv: true,
+        footerCsvLabel: 'CSV',
+        footerCsvTitle: 'Export raw ESM that powers this table',
+        onFooterCsv: (tableState) => {
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+          downloadEsmCsv({ url: deviceRawEsmUrl, name: `device-report-raw-${base}-${sourceToken}-${stamp}`, state: tableState });
+        }
+      });
+      reportWrap.style.display = 'block';
+    }
 
     function renderHeaderRow(container, win) {
       const row = document.createElement('div');
@@ -3505,6 +3792,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
       const hasIdx = Number.isInteger(requestedIdx) && requestedIdx >= 0 && requestedIdx < series.length;
       if (hasIdx) return requestedIdx;
+      if (requestedIdx >= 0 && requestedIdx >= series.length) return Math.max(0, series.length - 1);
 
       if (requestedKey) {
         const exact = series.findIndex(pt => pt?.key === requestedKey);
@@ -3556,13 +3844,15 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (!signal || !series || !bucket) return;
       const latestBucket = series[series.length - 1] || null;
 
+      const derivedStatus = statusForRcaDetails(signal, bucket);
+
       document.getElementById('rcaTitle').textContent =
         ctx?.dimKey && ctx?.dimVal
           ? `${signal.label} — ${ctx.dimKey}=${ctx.dimVal}`
           : signal.label;
 
       document.getElementById('rcaSubtitle').textContent =
-        `Story: ${signal.story} • selected: ${bucket.key} (${bucketIdx + 1}/${series.length}) • latest: ${latestBucket?.key || '—'} • status: ${bucket.status.toUpperCase()}`;
+        `Story: ${signal.story} • selected: ${bucket.key} (${bucketIdx + 1}/${series.length}) • latest: ${latestBucket?.key || '—'} • status: ${derivedStatus.toUpperCase()}`;
 
       // KPIs
       const kpiWrap = document.getElementById('rcaKpis');
@@ -3628,13 +3918,39 @@ async function dcrRegisterClient(softwareStatement, appName) {
       renderRcaDefaultTable(signal, ctx, bucket.key);
     }
 
+    /**
+     * Resolve status for RCA Details so it always matches the displayed value.
+     * Derives from bucket.value and signal only (same value we show in Details).
+     * Safeguard: for positive rate (higher=good), never show BAD when value >= 0.95.
+     */
+    function statusForRcaDetails(signal, bucket) {
+      const value = bucket.value;
+      if (!signal || !Number.isFinite(value)) return (bucket.status === 'good' || bucket.status === 'warn' || bucket.status === 'bad') ? bucket.status : 'unk';
+
+      const typeHint = signal.type || 'rate';
+      const thresholds = signal.thresholds || null;
+      const better = inferBetter(typeHint, thresholds);
+      const v = normalizeValueForClassify(value, typeHint);
+      if (!Number.isFinite(v)) return 'unk';
+      if (!thresholds || typeof thresholds !== 'object') return (typeHint === 'rate' && better === 'higher' && v >= 0.95 ? 'good' : 'unk');
+
+      let st = classify(v, thresholds, typeHint);
+      if (st === 'bad' && typeHint === 'rate' && better === 'higher' && v >= 0.95) st = 'warn';
+      return st;
+    }
+
     function buildNarrative(signal, bucket, ctx) {
-      const st = bucket.status;
+      if (!signal || !bucket) return '<div class="smallnote">No selection.</div>';
+
+      const value = bucket.value;
+      const st = statusForRcaDetails(signal, bucket);
       const statusWord = st === 'good' ? 'GOOD' : (st === 'warn' ? 'WARNING' : (st === 'bad' ? 'BAD' : 'UNKNOWN'));
 
+      const valueLabel = signal.type === 'rate' ? fmtPct(value) : (signal.type === 'latency' ? fmtMs(value) : (signal.type === 'anomaly' ? fmtRatio(value) : (Number.isFinite(value) ? String(value) : '—')));
+
       const lines = [];
-      lines.push(`<div><strong>Status:</strong> ${statusWord}</div>`);
-      lines.push(`<div><strong>Bucket:</strong> <span class="kbd">${bucket.key}</span></div>`);
+      lines.push(`<div><strong>Status:</strong> ${statusWord} <span class="smallnote">(value: ${valueLabel} for selected bucket)</span></div>`);
+      lines.push(`<div><strong>Bucket:</strong> <span class="kbd">${bucket.key || '—'}</span></div>`);
 
       if (signal.type === 'rate') {
         lines.push(`<div><strong>Definition:</strong> ${signal.numer} ÷ ${signal.denom}</div>`);
@@ -3937,14 +4253,14 @@ async function dcrRegisterClient(softwareStatement, appName) {
         : `Top offenders by ${dimKey} (ranked by ${rateSig.label})`;
 
       const rows = offenders.map(o => {
-        const st = classify(o.value, rateSig.thresholds, rateSig.type);
+        const st = classifyForSignal(rateSig, o.value);
         const rag = positiveMode ? ragPositivePercentText(o.value) : st.toUpperCase();
         const reason = reasonByDim.get((o.dimVal ?? '').toString()) || null;
         const reasonLabel = reason?.label || '—';
         const reasonCount = Number.isFinite(reason?.count) ? fmtInt(reason.count) : '—';
 
         // Build the display row as an Array, but attach the raw metric so the RAG
-        // column can color using MILA-style ramps.
+        // column can color using MILA-style ramps. Use signal context so positive/negative is correct.
         const arr = [
           o.dimVal,
           fmtSignalValue(rateSig, o.value),
@@ -3957,7 +4273,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         arr.__ragStatus = st;
         arr.__ragKind = rateSig?.type || 'rate';
         arr.__ragThresholds = rateSig?.thresholds || null;
-        arr.__ragBetter = (rateSig?.thresholds?.better || 'higher');
+        arr.__ragBetter = inferBetter(rateSig?.type, rateSig?.thresholds);
         arr.__ragMode = positiveMode ? 'positive' : 'outage';
         return arr;
       });
@@ -4266,12 +4582,13 @@ async function dcrRegisterClient(softwareStatement, appName) {
               : 'unk';
 
             // RCA row builders attach metric metadata so RAG label+color can be derived
-            // from the same classification logic and stay in sync.
-            const better = (row && row.__ragBetter) ? row.__ragBetter : '';
+            // from the same classification logic and stay in sync. Use effectiveBetter so
+            // positive (higher=good) vs negative (lower=good) context is correct.
             const metric = (row && Number.isFinite(row.__ragValue)) ? row.__ragValue : NaN;
             const kind = (row && row.__ragKind) ? row.__ragKind : 'rate';
             const thresholds = (row && row.__ragThresholds) ? row.__ragThresholds : null;
             const ragMode = (row && row.__ragMode) ? row.__ragMode : 'outage';
+            const effectiveBetter = (row && row.__ragBetter) ? row.__ragBetter : inferBetter(kind, thresholds);
 
             let norm = (row && row.__ragStatus) ? row.__ragStatus : textNorm;
             if ((!row || !row.__ragStatus) && Number.isFinite(metric) && thresholds) {
@@ -4287,20 +4604,19 @@ async function dcrRegisterClient(softwareStatement, appName) {
             sq.className = 'rag-sq';
 
             // RAG color is percentage-driven in both contexts:
-            // - positive: classic red -> amber -> green
+            // - positive: classic red -> amber -> green (higher metric % = greener)
             // - outage: light red -> hot red by impact percentage
             let color = ragColorFromStatus(norm);
             const metricPct = ragMetricPercent(metric, kind, thresholds);
             if (Number.isFinite(metricPct)) {
-              const impactPct = (better === 'higher' && ragMode !== 'positive')
+              const impactPct = (effectiveBetter === 'higher' && ragMode !== 'positive')
                 ? (100 - metricPct)
                 : metricPct;
               color = (ragMode === 'positive')
                 ? milaGetColor(metricPct)
                 : ragNegativeImpactColor(impactPct);
-            } else if (Number.isFinite(metric) && better) {
-              // Final fallback for any unexpected metric shape.
-              color = milaColorForValue(metric, better, kind, thresholds);
+            } else if (Number.isFinite(metric) && effectiveBetter) {
+              color = milaColorForValue(metric, effectiveBetter, kind, thresholds);
             }
             sq.style.background = color;
 
@@ -4699,7 +5015,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const positiveMode = isPositiveRcaSignal(signal);
       const addRows = (type, dimKey, offenders) => {
         offenders.forEach(o => {
-          const st = classify(o.value, rateSig.thresholds, rateSig.type);
+          const st = classifyForSignal(rateSig, o.value);
           const rag = positiveMode ? ragPositivePercentText(o.value) : st.toUpperCase();
           const arr = [
             type,
@@ -4713,7 +5029,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
           arr.__ragStatus = st;
           arr.__ragKind = rateSig?.type || 'rate';
           arr.__ragThresholds = rateSig?.thresholds || null;
-          arr.__ragBetter = (rateSig?.thresholds?.better || 'higher');
+          arr.__ragBetter = inferBetter(rateSig?.type, rateSig?.thresholds);
           arr.__ragMode = positiveMode ? 'positive' : 'outage';
           rows.push(arr);
         });
@@ -4890,78 +5206,20 @@ async function dcrRegisterClient(softwareStatement, appName) {
         });
       }
 
-      // Dynamic Top Offenders section (based on AuthZ success)
-      const rateSig = CORE_SIGNALS.find(s => s.id === 'authz_success');
-      const mvpdOff = topOffendersFromDim('mvpd', mvpdIdx.byDim.get('mvpd') || new Map(), win, rateSig);
-      const reqOff  = topOffendersFromDim('requestor-id', reqIdx.byDim.get('requestor-id') || new Map(), win, rateSig);
-      const dcOff   = topOffendersFromDim('dc', dcIdx.byDim.get('dc') || new Map(), win, rateSig);
-
-      const topGroupVisible =
-        !search ||
-        ['top','offender','mvpd','requestor','dc'].some(t => search.includes(t));
-
-      if (topGroupVisible) {
-        renderGroupRow(grid, 'Top Offenders (AuthZ success)');
-
-        // MVPD rows
-        for (const o of mvpdOff) {
-          const sig = {
-            ...rateSig,
-            id: 'mvpd_' + o.dimVal,
-            label: 'MVPD: ' + o.dimVal,
-            story: 'Worst MVPDs (current)',
-            ds: 'mvpd_hour',
-            _dimKey: 'mvpd',
-            _dimVal: o.dimVal
-          };
-          const filtered = mvpdRows.filter(r => (r.mvpd ?? '').toString() === o.dimVal);
-          const idx = indexReport(filtered, win, []);
-          const series = computeSignalSeries(rateSig, idx, win);
-          renderSignalRow(grid, sig, series, { kind: 'mvpd', dimKey: 'mvpd', dimVal: o.dimVal });
-          exportModel.rows.push(makeExportRow(sig, series, { kind: 'mvpd', dimKey: 'mvpd', dimVal: o.dimVal }));
-          matchCount++;
-        }
-
-        // Requestor rows
-        for (const o of reqOff) {
-          const sig = {
-            ...rateSig,
-            id: 'req_' + o.dimVal,
-            label: 'Requestor: ' + o.dimVal,
-            story: 'Worst requestors (current)',
-            ds: 'requestor_hour',
-            _dimKey: 'requestor-id',
-            _dimVal: o.dimVal
-          };
-          const filtered = reqRows.filter(r => (r['requestor-id'] ?? '').toString() === o.dimVal);
-          const idx = indexReport(filtered, win, []);
-          const series = computeSignalSeries(rateSig, idx, win);
-          renderSignalRow(grid, sig, series, { kind: 'requestor', dimKey: 'requestor-id', dimVal: o.dimVal });
-          exportModel.rows.push(makeExportRow(sig, series, { kind: 'requestor', dimKey: 'requestor-id', dimVal: o.dimVal }));
-          matchCount++;
-        }
-
-        // DC rows
-        for (const o of dcOff) {
-          const sig = {
-            ...rateSig,
-            id: 'dc_' + o.dimVal,
-            label: 'DC: ' + o.dimVal,
-            story: 'Worst data centers (current)',
-            ds: 'dc_hour',
-            _dimKey: 'dc',
-            _dimVal: o.dimVal
-          };
-          const filtered = dcRows.filter(r => (r.dc ?? '').toString() === o.dimVal);
-          const idx = indexReport(filtered, win, []);
-          const series = computeSignalSeries(rateSig, idx, win);
-          renderSignalRow(grid, sig, series, { kind: 'dc', dimKey: 'dc', dimVal: o.dimVal });
-          exportModel.rows.push(makeExportRow(sig, series, { kind: 'dc', dimKey: 'dc', dimVal: o.dimVal }));
-          matchCount++;
-        }
-      }
-
       document.getElementById('matchCount').textContent = matchCount + ' signals';
+
+      renderDcReportPanel(dcIdx, win, getDcSourceLabel());
+
+      const deviceReportWrap = document.getElementById('deviceReportWrap');
+      if (reqIds.length > 0) {
+        const dayWin = computeDayWindow(7);
+        const deviceRows = await fetchReport(pickDeviceDataSourceUrl(), dayWin);
+        renderDeviceReportPanel(deviceRows, dayWin, getDeviceSourceLabel());
+      } else {
+        if (deviceReportWrap) deviceReportWrap.style.display = 'none';
+        const deviceTableWrap = document.getElementById('deviceReportTableWrap');
+        if (deviceTableWrap) clear(deviceTableWrap);
+      }
 
       state.lastRenderModel = exportModel;
       state.lastRefreshAt = new Date();
