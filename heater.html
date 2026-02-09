@@ -485,7 +485,7 @@
 
     .row {
       display: grid;
-      grid-template-columns: 300px repeat(12, 18px);
+      grid-template-columns: 300px repeat(var(--bucket-cols, 12), 18px);
       gap: 8px;
       padding: 10px 14px;
       border-bottom: 1px solid rgba(255,255,255,.04);
@@ -691,7 +691,7 @@
 
     .mini-heat {
       display: grid;
-      grid-template-columns: repeat(12, 16px);
+      grid-template-columns: repeat(var(--mini-cols, 12), 16px);
       gap: 6px;
       margin-top: 8px;
     }
@@ -1071,22 +1071,29 @@
 
       <span class="tag" id="matchCount" title="Signals shown">—</span>
 
-      <label>
-        Lookback
-        <select id="lookbackHours">
-          <option value="12" selected>12h</option>
-          <option value="6">6h</option>
-          <option value="3">3h</option>
+      <label title="Window size (auto bucket follows this)">
+        Window
+        <input id="lookbackValue" type="number" min="1" max="240" value="12" style="width:72px;" />
+      </label>
+
+      <label title="Window unit; bucket auto resolves to DAY/HR/MIN from this window">
+        Unit
+        <select id="lookbackUnit">
+          <option value="minute">MIN</option>
+          <option value="hour" selected>HR</option>
+          <option value="day">DAY</option>
         </select>
       </label>
 
-      <label>
-        Bucket
-        <select id="bucketSize">
-          <option value="hour" selected>1 hour</option>
-          <option value="minute">15 min (beta)</option>
+      <label title="Lookback from now or look forward from now">
+        Direction
+        <select id="lookDirection">
+          <option value="backward" selected>Lookback</option>
+          <option value="forward">Forward</option>
         </select>
       </label>
+
+      <span class="tag" id="bucketAutoTag" title="Bucket is auto-resolved (not user selectable)">AUTO: HR</span>
 
       <label>
         Refresh
@@ -1168,7 +1175,7 @@
 
     <div id="reasonReportWrap" class="dc-report-wrap reason-report-wrap" aria-label="Reason report (event • reason counts)">
       <div class="dc-report-head">
-        <h3>Reason report — Only reasons that need attention (≠ None), 3 clicks to RCA</h3>
+        <h3>Reason report — Only reasons that need attention (≠ None), PAR3 click to RCA</h3>
       </div>
       <div id="reasonReportTableWrap"></div>
     </div>
@@ -1193,7 +1200,7 @@
         <div class="kpi-grid" id="rcaKpis"></div>
 
         <div class="section">
-          <h4>Last 12 buckets</h4>
+          <h4>Active buckets</h4>
           <div class="mini-heat" id="rcaMiniHeat"></div>
         </div>
 
@@ -1256,10 +1263,10 @@
        HEATER
        - Single-file, front-end only
        - Uses the 240 URL dictionary from clickESM.html
-       - Goal: “what’s happening right now” + 12h context + <= PAR 3–5 clicks to probable RCA
+       - Goal: “what’s happening right now” + live context + PAR3 clicks to probable RCA
        ============================================================ */
 
-    const APP_VERSION = "1.2.4";
+    const APP_VERSION = "1.3.0";
     const UNAUTH_MESSAGE = "⚠️ Ahoy there buckaroo, this tool requires authentication. Please login using the button, and close the popup once you're done";
     const ESM_DICTIONARY = [{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","media-company","media-tokens","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","media-company","media-tokens","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event","cols":["count","day","event","media-company","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id","cols":["count","day","event","media-company","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy","cols":["count","day","event","media-company","month","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd","cols":["count","day","event","media-company","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason","cols":["count","day","event","media-company","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason/dc","cols":["count","day","dc","event","media-company","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event","cols":["count","day","event","hour","media-company","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id","cols":["count","day","event","hour","media-company","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy","cols":["count","day","event","hour","media-company","month","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd","cols":["count","day","event","hour","media-company","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason","cols":["count","day","event","hour","media-company","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc","cols":["count","day","dc","event","hour","media-company","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","minute","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event","cols":["count","day","event","hour","media-company","minute","month","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id","cols":["count","day","event","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy","cols":["count","day","event","hour","media-company","minute","month","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd","cols":["count","day","event","hour","media-company","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason","cols":["count","day","event","hour","media-company","minute","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason/dc","cols":["count","day","dc","event","hour","media-company","minute","month","mvpd","proxy","reason","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/channel/platform-version","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","hour","media-company","media-tokens","minute","month","mvpd","platform-version","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/channel/platform-version/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform-version","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","dc","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/cdt/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","dc","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/eap","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","minute","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/eap/platform","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/eap/platform/nsdk","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","minute","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","dc","eap","hour","media-company","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","minute","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","minute","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","media-tokens","minute","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","media-tokens","minute","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","media-tokens","minute","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","minute","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","proxy","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/cdt","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/cdt/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/cdt/channel/platform-version","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","hour","media-company","media-tokens","month","mvpd","platform-version","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/cdt/channel/platform-version/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","dc","hour","media-company","media-tokens","month","mvpd","platform-version","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/cdt/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","dc","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/customer-app","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/customer-app/content-category","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","content-category","customer-app","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/customer-app/content-category/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/customer-app/content-category/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","dc","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/eap","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/eap/platform","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/eap/platform/nsdk","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","hour","media-company","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","dc","eap","hour","media-company","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/content-category","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","content-category","customer-app","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/content-category/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/content-category/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","hour","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","hour","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","hour","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","hour","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","hour","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","proxy","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","proxy","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/eap","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","media-company","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/eap/platform","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","media-company","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/eap/platform/nsdk","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","media-company","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","eap","media-company","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/eap/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-failed","authn-pending","authn-successful","day","dc","eap","media-company","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","unique-accounts","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform/nsdk","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/platform/nsdk/nsdk-version/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","sso-type","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/channel/platform-version","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","media-company","media-tokens","month","platform-version","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/channel/platform-version/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","channel","day","dc","media-company","media-tokens","month","platform-version","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","media-company","media-tokens","month","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/cdt/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","cdt","day","dc","media-company","media-tokens","month","requestor-id","sso-type","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/content-category","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","content-category","customer-app","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/content-category/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/content-category/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","device","media-company","media-tokens","month","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","device","media-company","media-tokens","month","os-family","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","device","media-company","media-tokens","month","os-family","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/os-family","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","os-family","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/os-family/browser-family","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","browser-family","day","media-company","media-tokens","month","os-family","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/os-family/browser-family/browser-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","browser-family","browser-version","day","media-company","media-tokens","month","os-family","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/os-family/browser-family/browser-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","browser-family","browser-version","day","dc","media-company","media-tokens","month","os-family","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version/api","cols":["api","application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version/api/dc","cols":["api","application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/content-category","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","content-category","customer-app","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/content-category/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","media-company","media-tokens","month","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/content-category/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","nsdk","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/os-family","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","nsdk","nsdk-version","os-family","platform","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/os-family/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","nsdk","nsdk-version","os-family","platform","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/sso-type","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","sso-type","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/platform/nsdk/nsdk-version/sso-type/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","nsdk","nsdk-version","platform","requestor-id","sso-type","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","device","media-company","media-tokens","month","mvpd","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","device","media-company","media-tokens","month","mvpd","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/application-name","cols":["application-name","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/application-name/application-version","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/application-name/application-version/channel","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/application-name/application-version/channel/dc","cols":["application-name","application-version","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/application-name/application-version/dc","cols":["application-name","application-version","authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","customer-app","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/channel/decision-type","cols":["channel","customer-app","day","decision-attempts","decision-failed","decision-media-tokens","decision-successful","decision-type","media-company","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/channel/decision-type/dc","cols":["channel","customer-app","day","dc","decision-attempts","decision-failed","decision-media-tokens","decision-successful","decision-type","media-company","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/content-category","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","content-category","customer-app","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/content-category/channel","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/content-category/channel/dc","cols":["authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","channel","content-category","customer-app","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/customer-app/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","customer-app","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk/nsdk-version","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk/nsdk-version/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk/nsdk-version/os-family","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","os-family","platform","proxy","requestor-id","year"]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk/nsdk-version/os-family/browser-family","cols":[]},{"url":"https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/platform/nsdk/nsdk-version/os-family/dc","cols":["authn-attempts","authn-pending","authn-successful","authz-attempts","authz-failed","authz-latency","authz-rejected","authz-successful","day","dc","media-company","media-tokens","month","mvpd","nsdk","nsdk-version","os-family","platform","proxy","requestor-id","unique-accounts","unique-sessions","year"]}];
 
@@ -2376,61 +2383,116 @@ async function dcrRegisterClient(softwareStatement, appName) {
     function hourKeyFromDate(dt) {
       return hourKeyFromParts(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours());
     }
+    function dayKeyFromDate(dt) {
+      return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+    }
+    function minuteKeyFromDate(dt) {
+      return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    }
+
+    function clampInt(n, min, max, fallback) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(min, Math.min(max, Math.round(v)));
+    }
+
+    function getLookWindowConfig() {
+      const valueInput = document.getElementById('lookbackValue');
+      const unitSel = document.getElementById('lookbackUnit');
+      const dirSel = document.getElementById('lookDirection');
+
+      const unitRaw = (unitSel?.value || 'hour').toString().toLowerCase();
+      const unit = (unitRaw === 'minute' || unitRaw === 'hour' || unitRaw === 'day') ? unitRaw : 'hour';
+
+      const maxByUnit = unit === 'minute' ? 240 : unit === 'hour' ? 240 : 60;
+      const defaultByUnit = unit === 'minute' ? 60 : unit === 'hour' ? 12 : 7;
+      const value = clampInt(valueInput?.value, 1, maxByUnit, defaultByUnit);
+      if (valueInput) valueInput.value = String(value);
+
+      const directionRaw = (dirSel?.value || 'backward').toString().toLowerCase();
+      const direction = (directionRaw === 'forward') ? 'forward' : 'backward';
+
+      return { value, unit, direction };
+    }
+
+    // Management mandate: bucket is auto-resolved from lookback controls, DAY/HR/MIN only.
+    function bucketUnitFromLookback(cfg) {
+      if (!cfg) return 'hour';
+      if (cfg.unit === 'day') return 'day';
+      if (cfg.unit === 'minute') return 'minute';
+      return 'hour';
+    }
+
+    function floorToBucketStart(dt, bucketSize) {
+      const d = new Date(dt);
+      if (bucketSize === 'day') {
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      if (bucketSize === 'hour') {
+        d.setMinutes(0, 0, 0);
+        return d;
+      }
+      d.setSeconds(0, 0);
+      return d;
+    }
+
+    function addBucketStep(dt, bucketSize, delta) {
+      const d = new Date(dt);
+      if (bucketSize === 'day') {
+        d.setDate(d.getDate() + delta);
+        return d;
+      }
+      if (bucketSize === 'hour') {
+        d.setHours(d.getHours() + delta);
+        return d;
+      }
+      d.setMinutes(d.getMinutes() + delta);
+      return d;
+    }
+
+    function bucketKeyFromDate(dt, bucketSize) {
+      if (bucketSize === 'day') return dayKeyFromDate(dt);
+      if (bucketSize === 'hour') return hourKeyFromDate(dt);
+      return minuteKeyFromDate(dt);
+    }
+
+    function bucketLabelFromDate(dt, bucketSize) {
+      if (bucketSize === 'day') return `${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+      if (bucketSize === 'hour') return `${pad2(dt.getHours())}`;
+      return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    }
 
     function computeWindow() {
-      const lookbackHours = Number(document.getElementById('lookbackHours')?.value || 12);
-      const bucketSize = document.getElementById('bucketSize')?.value || 'hour';
-
+      const cfg = getLookWindowConfig();
+      const bucketSize = bucketUnitFromLookback(cfg);
       const now = new Date();
-      const end = new Date(now);
-
-      if (bucketSize === 'hour') {
-        // Align buckets to the hour, but include the current partial hour.
-        const bucketEnd = new Date(now);
-        bucketEnd.setMinutes(0,0,0);
-
-        const buckets = [];
-        for (let i = lookbackHours - 1; i >= 0; i--) {
-          const d = new Date(bucketEnd);
-          d.setHours(bucketEnd.getHours() - i);
+      const anchor = floorToBucketStart(now, bucketSize);
+      const buckets = [];
+      if (cfg.direction === 'backward') {
+        for (let i = cfg.value - 1; i >= 0; i--) {
+          const d = addBucketStep(anchor, bucketSize, -i);
           buckets.push({
             start: d,
-            key: hourKeyFromDate(d),
-            label: pad2(d.getHours())
+            key: bucketKeyFromDate(d, bucketSize),
+            label: bucketLabelFromDate(d, bucketSize)
           });
         }
-
-        const start = new Date(bucketEnd);
-        start.setHours(bucketEnd.getHours() - (lookbackHours - 1));
-
-        return {
-          start,
-          end,
-          buckets,
-          startIso: iso(start),
-          endIso: iso(end),
-          bucketSize
-        };
+      } else {
+        for (let i = 0; i < cfg.value; i++) {
+          const d = addBucketStep(anchor, bucketSize, i);
+          buckets.push({
+            start: d,
+            key: bucketKeyFromDate(d, bucketSize),
+            label: bucketLabelFromDate(d, bucketSize)
+          });
+        }
       }
 
-      // 15-min buckets (beta): to keep the UI 12 columns wide, we interpret the selector as "bucket count".
-      const bucketCount = lookbackHours; // reuse selector count as number of buckets
-      const stepMin = 15;
-
-      const bucketEnd = new Date(now);
-      bucketEnd.setSeconds(0,0);
-      bucketEnd.setMinutes(Math.floor(bucketEnd.getMinutes()/stepMin)*stepMin);
-
-      const buckets = [];
-      for (let i = bucketCount - 1; i >= 0; i--) {
-        const d = new Date(bucketEnd);
-        d.setMinutes(bucketEnd.getMinutes() - i*stepMin);
-        const label = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-        const key = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-        buckets.push({ start: d, key, label });
-      }
-      const start = new Date(bucketEnd);
-      start.setMinutes(bucketEnd.getMinutes() - (bucketCount - 1)*stepMin);
+      const firstBucket = buckets[0]?.start ? new Date(buckets[0].start) : new Date(anchor);
+      const lastBucket = buckets[buckets.length - 1]?.start ? new Date(buckets[buckets.length - 1].start) : new Date(anchor);
+      const start = (cfg.direction === 'forward') ? new Date(now) : firstBucket;
+      const end = (cfg.direction === 'forward') ? addBucketStep(lastBucket, bucketSize, 1) : new Date(now);
 
       return {
         start,
@@ -2438,17 +2500,23 @@ async function dcrRegisterClient(softwareStatement, appName) {
         buckets,
         startIso: iso(start),
         endIso: iso(end),
-        bucketSize
+        bucketSize,
+        lookbackValue: cfg.value,
+        lookbackUnit: cfg.unit,
+        direction: cfg.direction
       };
     }
 
-    /** Day window for device (by day) ESM: last N days, one bucket per day. */
-    function computeDayWindow(days = 7) {
+    /** Day window for device (by day) ESM: past/future N days, one bucket per day. */
+    function computeDayWindow(days = 7, direction = 'backward') {
       const n = Math.max(1, Math.min(31, Number(days) || 7));
-      const end = new Date();
-      const start = new Date(end);
-      start.setDate(start.getDate() - (n - 1));
+      const forward = (direction === 'forward');
+      const now = new Date();
+      const start = new Date(now);
       start.setHours(0, 0, 0, 0);
+      if (!forward) start.setDate(start.getDate() - (n - 1));
+      const end = new Date(start);
+      end.setDate(start.getDate() + (n - 1));
       end.setHours(23, 59, 59, 999);
       const buckets = [];
       for (let i = 0; i < n; i++) {
@@ -2463,7 +2531,8 @@ async function dcrRegisterClient(softwareStatement, appName) {
         buckets,
         startIso: iso(start),
         endIso: iso(end),
-        bucketSize: 'day'
+        bucketSize: 'day',
+        direction: forward ? 'forward' : 'backward'
       };
     }
 
@@ -2554,9 +2623,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       }
 
       const min = safeNum(row.minute) || 0;
-      const step = 15;
-      const q = Math.floor(min/step)*step;
-      return `${y}-${pad2(m)}-${pad2(d)}T${pad2(h)}:${pad2(q)}`;
+      return `${y}-${pad2(m)}-${pad2(d)}T${pad2(h)}:${pad2(min)}`;
     }
 
     function indexReport(rows, win, dimKeys=[]) {
@@ -2604,33 +2671,85 @@ async function dcrRegisterClient(softwareStatement, appName) {
       trafficAnomaly: { green: 1.25, amber: 1.6, better: 'lower' } // ratio beyond threshold is bad
     };
 
-    const DATA_SOURCES = {
-      overall_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour',
-      requestor_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id',
-      mvpd_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd',
-      mvpd_requestor_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id',
+    const ESM_URL_COLS = new Map((ESM_DICTIONARY || []).map(entry => [entry.url, Array.isArray(entry.cols) ? entry.cols : []]));
 
-      // DC endpoints:
-      // - dc_hour is lightweight but does NOT accept some filter combos (notably requestor-id=...) and can 400.
-      // - richer endpoints include mvpd/proxy/requestor dimensions and are used automatically when filters are applied.
-      dc_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/dc',
-      dc_hour_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/dc',
-      dc_hour_mvpd_requestor: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/dc',
-
-      event_reason_hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason',
-      event_reason_hour_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc',
-      event_reason_day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason',
-      event_reason_day_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason/dc',
-      event_reason_minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason',
-      event_reason_minute_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason/dc',
-
-      // Device (by day) — requestor required; MVPD optional.
-      device_day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device',
-      device_day_os: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family',
-      device_day_os_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family/dc',
-      device_day_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device',
-      device_day_mvpd_dc: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device/dc'
+    const ESM_TREE = {
+      overall: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour',
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute'
+      },
+      requestor: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/requestor-id',
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/requestor-id'
+      },
+      mvpd: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd',
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd'
+      },
+      mvpdRequestor: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id',
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id'
+      },
+      dc: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/dc',
+        day_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/dc',
+        day_mvpd_requestor: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/proxy/mvpd/requestor-id/dc',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/dc',
+        hour_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/dc',
+        hour_mvpd_requestor: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/requestor-id/dc',
+        // MIN-level dc tree does not expose a lightweight /minute/dc endpoint.
+        // Use the full requestor/mvpd path and aggregate by dc client-side.
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/proxy/mvpd/requestor-id/dc'
+      },
+      reason: {
+        day: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/event/requestor-id/proxy/mvpd/reason/dc',
+        hour: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/event/requestor-id/proxy/mvpd/reason/dc',
+        minute: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/minute/event/requestor-id/proxy/mvpd/reason/dc'
+      },
+      device: {
+        day_requestor: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/device/os-family/dc',
+        day_mvpd: 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/requestor-id/proxy/mvpd/device/dc'
+      }
     };
+
+    function normalizeBucketSize(size) {
+      if (size === 'day' || size === 'hour' || size === 'minute') return size;
+      return 'hour';
+    }
+
+    function getEsmCols(url) {
+      return ESM_URL_COLS.get(url) || [];
+    }
+
+    function shortEsmPath(url) {
+      return (url || '').replace('https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day', '…/day');
+    }
+
+    function fmtEsmSourceLabel(url, maxCols = 8) {
+      const cols = getEsmCols(url);
+      if (!cols.length) return shortEsmPath(url);
+      const shown = cols.slice(0, maxCols).join(', ');
+      const more = cols.length > maxCols ? `, +${cols.length - maxCols}` : '';
+      return `${shortEsmPath(url)} · cols: ${shown}${more}`;
+    }
+
+    function requireTreeUrl(url) {
+      if (ESM_URL_COLS.has(url)) return url;
+      console.warn('[ESM tree] URL missing from dictionary', url);
+      return url;
+    }
+
+    function pickCoreDataSourceUrl(kind, win) {
+      const bucket = normalizeBucketSize(win?.bucketSize);
+      const node = ESM_TREE[kind];
+      if (!node) return '';
+      return requireTreeUrl(node[bucket]);
+    }
+
     function getActiveFilters() {
       const reqSel = document.getElementById('fltr_requestorid');
       const mvpdSel = document.getElementById('fltr_mvpdId');
@@ -2642,40 +2761,70 @@ async function dcrRegisterClient(softwareStatement, appName) {
     }
 
     // Some ESM endpoints reject certain filter parameters (400 Bad Request).
-    // Example: /hour/dc + requestor-id=... can 400. We route to richer endpoints when filters are active.
-    function pickDcDataSourceUrl(filters = null) {
+    // Route to richer URLs when requestor/mvpd filters are active.
+    function pickDcDataSourceUrl(win, filters = null) {
+      const bucket = normalizeBucketSize(win?.bucketSize);
       const f = filters || getActiveFilters();
-      if (f.reqIds && f.reqIds.length) return DATA_SOURCES.dc_hour_mvpd_requestor;
-      if (f.mvpdIds && f.mvpdIds.length) return DATA_SOURCES.dc_hour_mvpd;
-      return DATA_SOURCES.dc_hour;
+      if (bucket === 'minute') return requireTreeUrl(ESM_TREE.dc.minute);
+      if (f.reqIds && f.reqIds.length) return requireTreeUrl(ESM_TREE.dc[`${bucket}_mvpd_requestor`]);
+      if (f.mvpdIds && f.mvpdIds.length) return requireTreeUrl(ESM_TREE.dc[`${bucket}_mvpd`]);
+      return requireTreeUrl(ESM_TREE.dc[bucket]);
     }
 
     /** Device (by day) ESM: requestor required; with MVPD filter use proxy/mvpd/device/dc. */
     function pickDeviceDataSourceUrl(filters = null) {
       const f = filters || getActiveFilters();
-      if (f.mvpdIds && f.mvpdIds.length) return DATA_SOURCES.device_day_mvpd_dc;
-      return DATA_SOURCES.device_day_os_dc;
+      if (f.mvpdIds && f.mvpdIds.length) return requireTreeUrl(ESM_TREE.device.day_mvpd);
+      return requireTreeUrl(ESM_TREE.device.day_requestor);
     }
 
     function getDeviceSourceLabel() {
-      const f = getActiveFilters();
-      if (f.mvpdIds && f.mvpdIds.length) return '…/proxy/mvpd/device/dc (requestor + MVPD)';
-      return '…/requestor-id/device/os-family/dc (requestor)';
+      return fmtEsmSourceLabel(pickDeviceDataSourceUrl());
     }
 
-    /** Reason (event • reason counts): granularity from win.bucketSize; use _dc for DC column. */
+    /** Reason (event • reason counts): follows active DAY/HR/MIN bucket tree. */
     function pickReasonDataSourceUrl(win) {
-      const bucketSize = (win && win.bucketSize) || 'hour';
-      const useDc = true;
-      if (bucketSize === 'day') return useDc ? DATA_SOURCES.event_reason_day_dc : DATA_SOURCES.event_reason_day;
-      if (bucketSize === 'minute') return useDc ? DATA_SOURCES.event_reason_minute_dc : DATA_SOURCES.event_reason_minute;
-      return useDc ? DATA_SOURCES.event_reason_hour_dc : DATA_SOURCES.event_reason_hour;
+      const bucket = normalizeBucketSize(win?.bucketSize);
+      return requireTreeUrl(ESM_TREE.reason[bucket]);
     }
 
     function getReasonSourceLabel(win) {
-      const bucketSize = (win && win.bucketSize) || 'hour';
-      const base = bucketSize === 'day' ? '…/day/event/…/reason' : bucketSize === 'minute' ? '…/minute/event/…/reason' : '…/hour/event/…/reason';
-      return base + ' (dc)';
+      return fmtEsmSourceLabel(pickReasonDataSourceUrl(win));
+    }
+
+    function getDcSourceLabel(win, filters = null) {
+      return fmtEsmSourceLabel(pickDcDataSourceUrl(win, filters));
+    }
+
+    function isDcSignal(signal) {
+      return (signal?.ds === 'dc' || signal?.ds === 'dc_hour');
+    }
+
+    function pickSignalDataSourceUrl(signal, win) {
+      if (isDcSignal(signal)) return pickDcDataSourceUrl(win);
+      return pickCoreDataSourceUrl('overall', win);
+    }
+
+    function pickDimDataSourceUrl(dimKey, win) {
+      if (dimKey === 'requestor-id') return pickCoreDataSourceUrl('requestor', win);
+      if (dimKey === 'mvpd' || dimKey === 'proxy') return pickCoreDataSourceUrl('mvpd', win);
+      if (dimKey === 'dc') return pickDcDataSourceUrl(win);
+      return pickCoreDataSourceUrl('overall', win);
+    }
+
+    function requiredSignalColumns(signal) {
+      if (!signal) return [];
+      if (signal.type === 'rate') return [signal.numer, signal.denom].filter(Boolean);
+      if (signal.type === 'latency') return [signal.value].filter(Boolean);
+      if (signal.type === 'anomaly') return [signal.value].filter(Boolean);
+      return [];
+    }
+
+    function signalSupportedBySource(signal, sourceUrl) {
+      const cols = getEsmCols(sourceUrl);
+      if (!cols.length) return true;
+      const required = requiredSignalColumns(signal);
+      return required.every(col => cols.includes(col));
     }
 
     const CORE_SIGNALS = [
@@ -2687,7 +2836,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         type: 'rate',
         numer: 'authn-successful',
         denom: 'authn-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authnSuccess,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2699,7 +2848,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         type: 'rate',
         numer: 'authn-pending',
         denom: 'authn-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authnPendingRate,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2711,7 +2860,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         type: 'rate',
         numer: 'authz-successful',
         denom: 'authz-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authzSuccess,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2723,7 +2872,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         type: 'rate',
         numer: 'authz-rejected',
         denom: 'authz-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authzRejectRate,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2735,7 +2884,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         type: 'rate',
         numer: 'authz-failed',
         denom: 'authz-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authzFailRate,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2746,7 +2895,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         story: 'Average MVPD authz latency in seconds (authz-latency ÷ authz-attempts)',
         type: 'latency',
         value: 'authz-latency',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.authzLatencyMs,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2757,7 +2906,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         story: 'Detect traffic spikes/drops that precede failures',
         type: 'anomaly',
         value: 'authz-attempts',
-        ds: 'overall_hour',
+        ds: 'overall',
         thresholds: THRESHOLDS.trafficAnomaly,
         drill: ['requestor','mvpd','proxy','dc']
       },
@@ -2768,7 +2917,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
         story: 'Audience level shift (spike/drop)',
         type: 'anomaly',
         value: 'unique-sessions',
-        ds: 'dc_hour',
+        ds: 'dc',
         thresholds: THRESHOLDS.trafficAnomaly,
         drill: ['requestor','mvpd','proxy','dc']
       }
@@ -3299,72 +3448,82 @@ async function dcrRegisterClient(softwareStatement, appName) {
       return offenders;
     }
 
-    function toHourBucketKey(key) {
-      const s = (key ?? '').toString();
-      const m = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2})/);
-      return m ? `${m[1]}:00` : s;
-    }
-
-    function toHourWindow(win) {
-      if (!win || win.bucketSize === 'hour') return win;
-
-      const start = new Date(win.start);
-      const end = new Date(win.end);
-      start.setMinutes(0, 0, 0);
-
-      const endHour = new Date(end);
-      endHour.setMinutes(0, 0, 0);
-
-      const buckets = [];
-      const d = new Date(start);
-      while (d <= endHour) {
-        buckets.push({
-          start: new Date(d),
-          key: hourKeyFromDate(d),
-          label: pad2(d.getHours())
-        });
-        d.setHours(d.getHours() + 1);
-      }
-
-      return {
-        ...win,
-        start,
-        end,
-        startIso: iso(start),
-        endIso: iso(end),
-        bucketSize: 'hour',
-        buckets
-      };
-    }
-
     function computeDrillWindow() {
-      return toHourWindow(computeWindow());
+      return computeWindow();
     }
 
     function normalizeDrillBucketKey(win, bucketKey) {
       const fallbackKey = win?.buckets?.[win.buckets.length - 1]?.key || '';
       const raw = bucketKey || fallbackKey;
       if (!raw) return '';
-      return toHourBucketKey(raw);
+      return (raw ?? '').toString();
     }
 
-    function parseHourBucketDate(bucketKey) {
-      const m = (bucketKey ?? '').toString().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):00$/);
-      if (!m) return null;
-      const y = Number(m[1]);
-      const mon = Number(m[2]);
-      const day = Number(m[3]);
-      const hour = Number(m[4]);
-      if (![y, mon, day, hour].every(Number.isFinite)) return null;
-      return new Date(y, mon - 1, day, hour, 0, 0, 0);
+    function parseBucketDate(bucketKey) {
+      const s = (bucketKey ?? '').toString();
+      let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) {
+        const y = Number(m[1]);
+        const mon = Number(m[2]);
+        const day = Number(m[3]);
+        if ([y, mon, day].every(Number.isFinite)) return new Date(y, mon - 1, day, 0, 0, 0, 0);
+      }
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):00$/);
+      if (m) {
+        const y = Number(m[1]);
+        const mon = Number(m[2]);
+        const day = Number(m[3]);
+        const hour = Number(m[4]);
+        if ([y, mon, day, hour].every(Number.isFinite)) return new Date(y, mon - 1, day, hour, 0, 0, 0);
+      }
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+      if (m) {
+        const y = Number(m[1]);
+        const mon = Number(m[2]);
+        const day = Number(m[3]);
+        const hour = Number(m[4]);
+        const minute = Number(m[5]);
+        if ([y, mon, day, hour, minute].every(Number.isFinite)) return new Date(y, mon - 1, day, hour, minute, 0, 0);
+      }
+      return null;
     }
 
     function describeReasonBucketAge(win, bucketKey) {
-      const d = parseHourBucketDate(bucketKey);
-      if (!d || !win?.end) return 'Current Time Window';
+      const d = parseBucketDate(bucketKey);
+      if (!d || !win?.start || !win?.end) return 'Current Time Window';
+
+      if (win.direction === 'forward') {
+        const aheadMin = Math.max(0, Math.round((d.getTime() - win.start.getTime()) / 60_000));
+        if (!Number.isFinite(aheadMin)) return 'Current Time Window';
+        if (win.bucketSize === 'minute') {
+          if (aheadMin <= 1) return 'Current Minute';
+          if (aheadMin < 60) return `Next ${aheadMin} Minutes`;
+          return `Next ${Math.floor(aheadMin / 60)} Hours`;
+        }
+        if (win.bucketSize === 'day') {
+          const aheadDays = Math.max(0, Math.floor(aheadMin / 1440));
+          if (aheadDays <= 0) return 'Today';
+          if (aheadDays === 1) return 'Tomorrow';
+          return `Next ${aheadDays} Days`;
+        }
+        if (aheadMin < 60) return 'Current Hour';
+        if (aheadMin < 120) return 'Next Hour';
+        return `Next ${Math.floor(aheadMin / 60)} Hours`;
+      }
 
       const ageMin = Math.max(0, Math.round((win.end.getTime() - d.getTime()) / 60_000));
       if (!Number.isFinite(ageMin)) return 'Current Time Window';
+      if (win.bucketSize === 'minute') {
+        if (ageMin <= 1) return 'Current Minute (real-time)';
+        if (ageMin < 60) return `Last ${ageMin} Minutes`;
+        return `Last ${Math.floor(ageMin / 60)} Hours`;
+      }
+      if (win.bucketSize === 'day') {
+        const ageDays = Math.max(0, Math.floor(ageMin / 1440));
+        if (ageDays <= 0) return 'Today';
+        if (ageDays === 1) return 'Last Day';
+        return `Last ${ageDays} Days`;
+      }
       if (ageMin < 60) return 'Less than Last Hour (real-time)';
       if (ageMin < 120) return 'Last Hour';
       return `Last ${Math.floor(ageMin / 60)} Hours`;
@@ -3375,14 +3534,6 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (!win || !win.start || !win.end) return Math.max(1, (win?.buckets?.length || 12) * 60);
       const ms = win.end.getTime() - win.start.getTime();
       return Math.max(1, Math.round(ms / 60_000));
-    }
-
-    /** Short label for which ESM DC endpoint is used (for display). Dynamic from getActiveFilters(). */
-    function getDcSourceLabel() {
-      const f = getActiveFilters();
-      if (f.reqIds && f.reqIds.length) return '…/proxy/mvpd/requestor-id/dc (requestor filter)';
-      if (f.mvpdIds && f.mvpdIds.length) return '…/proxy/mvpd/dc (mvpd filter)';
-      return '…/hour/dc';
     }
 
     /**
@@ -3499,7 +3650,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (!wrap) return;
       clear(wrap);
       const rows = buildDcReportRows(dcIdx, win);
-      const sourceNote = (dcSourceLabel && dcSourceLabel.trim()) ? dcSourceLabel.trim() : getDcSourceLabel();
+      const sourceNote = (dcSourceLabel && dcSourceLabel.trim()) ? dcSourceLabel.trim() : getDcSourceLabel(win);
       const titleHtml = `<strong>DataCenter report</strong> — Source: <span class="kbd">${sourceNote}</span> · avg latency = authz-latency ÷ authz-attempts (ms) · RPM = requests/min over window`;
       if (!rows.length) {
         const p = document.createElement('p');
@@ -3514,10 +3665,10 @@ async function dcrRegisterClient(softwareStatement, appName) {
         { label: 'RPM', isNum: true, cellValue: (r) => fmtInt(r.rpm), sortValue: (r) => r.rpm },
         { label: 'Latency (ms)', isNum: true, cellValue: (r) => fmtMsInt(r.latencyMs), sortValue: (r) => r.latencyMs }
       ];
-      const dcRawEsmUrl = appendFilterParams(withTimeParams(pickDcDataSourceUrl(), win));
+      const dcRawEsmUrl = appendFilterParams(withTimeParams(pickDcDataSourceUrl(win), win));
       const base = safeFileToken(state.selectedProgrammerName || state.selectedProgrammerId || 'esm');
       const f = getActiveFilters();
-      const sourceToken = (f.reqIds && f.reqIds.length) ? 'requestor' : (f.mvpdIds && f.mvpdIds.length) ? 'mvpd' : 'hour';
+      const sourceToken = (f.reqIds && f.reqIds.length) ? 'requestor' : (f.mvpdIds && f.mvpdIds.length) ? 'mvpd' : win.bucketSize;
       createSortableTable(wrap, titleHtml, columns, rows, {
         footerCsv: true,
         footerCsvLabel: 'CSV',
@@ -3580,7 +3731,8 @@ async function dcrRegisterClient(softwareStatement, appName) {
       clear(wrap);
       const rows = buildDeviceReportRows(deviceRows, dayWin);
       const sourceNote = (deviceSourceLabel && deviceSourceLabel.trim()) ? deviceSourceLabel.trim() : getDeviceSourceLabel();
-      const titleHtml = `<strong>Device report</strong> — Source: <span class="kbd">${sourceNote}</span> · By day (last ${dayWin.buckets.length} days) · AuthZ % = authz-successful ÷ authz-attempts · Latency (ms) · RPM = requests/min over window`;
+      const dayDirLabel = dayWin?.direction === 'forward' ? 'next' : 'last';
+      const titleHtml = `<strong>Device report</strong> — Source: <span class="kbd">${sourceNote}</span> · By day (${dayDirLabel} ${dayWin.buckets.length} days) · AuthZ % = authz-successful ÷ authz-attempts · Latency (ms) · RPM = requests/min over window`;
       if (!rows.length) {
         const p = document.createElement('p');
         p.className = 'smallnote';
@@ -3618,7 +3770,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     /**
      * Build Reason report rows from raw event/reason ESM report (count per event, reason, dc, mvpd).
-     * Only includes reasons that need attention (reason != None). 3 clicks to RCA, live event monitoring.
+     * Only includes reasons that need attention (reason != None). PAR3 click-to-RCA, live event monitoring.
      */
     function buildReasonReportRows(reasonRows) {
       if (!Array.isArray(reasonRows)) return [];
@@ -3640,6 +3792,35 @@ async function dcrRegisterClient(softwareStatement, appName) {
       return rows;
     }
 
+    function pickSignalForReasonRow(row) {
+      const code = normalizeEventCode(row?.event);
+      if (code.startsWith('d')) return CORE_SIGNALS.find(s => s.id === 'authz_reject') || CORE_SIGNALS[0];
+      if (code.startsWith('r') || code.startsWith('g') || code.startsWith('p')) return CORE_SIGNALS.find(s => s.id === 'authz_success') || CORE_SIGNALS[0];
+      return CORE_SIGNALS.find(s => s.id === 'authz_fail') || CORE_SIGNALS[0];
+    }
+
+    async function openPar3RcaFromReasonRow(row) {
+      const signal = pickSignalForReasonRow(row);
+      const mvpd = (row?.mvpd ?? '').toString().trim();
+      const dc = (row?.dc ?? '').toString().trim();
+
+      if (mvpd && mvpd !== '—') {
+        await openScopedRca(signal, 'mvpd', mvpd);
+        return;
+      }
+      if (dc && dc !== '—') {
+        await openScopedRca(signal, 'dc', dc);
+        return;
+      }
+
+      const win = computeWindow();
+      const base = pickSignalDataSourceUrl(signal, win);
+      const rows = await fetchReport(base, win);
+      const idx = indexReport(rows, win, []);
+      const series = computeSignalSeries(signal, idx, win);
+      openRca(signal, series, { kind: 'core' }, null);
+    }
+
     function renderReasonReportPanel(reasonRows, win, reasonSourceLabel) {
       const wrap = document.getElementById('reasonReportTableWrap');
       const reportWrap = document.getElementById('reasonReportWrap');
@@ -3648,7 +3829,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const rows = buildReasonReportRows(reasonRows);
       const sourceNote = (reasonSourceLabel && reasonSourceLabel.trim()) ? reasonSourceLabel.trim() : getReasonSourceLabel(win);
       const bucketLabel = (win && win.bucketSize) ? (win.bucketSize === 'minute' ? 'minute' : win.bucketSize === 'day' ? 'day' : 'hour') : 'hour';
-      const titleHtml = `<strong>Reason report</strong> — Source: <span class="kbd">${sourceNote}</span> · Only reasons that need attention (≠ None), ${bucketLabel} window · 3 clicks to RCA`;
+      const titleHtml = `<strong>Reason report</strong> — Source: <span class="kbd">${sourceNote}</span> · Only reasons that need attention (≠ None), ${bucketLabel} window · PAR3 click-to-RCA (row click)`;
       if (!rows.length) {
         const p = document.createElement('p');
         p.className = 'smallnote';
@@ -3675,6 +3856,12 @@ async function dcrRegisterClient(softwareStatement, appName) {
         footerCsv: true,
         footerCsvLabel: 'CSV',
         footerCsvTitle: 'Export raw ESM that powers this table',
+        onRowClick: (row) => {
+          openPar3RcaFromReasonRow(row).catch((err) => {
+            console.error('[RCA] reason-row open failed', err);
+            toast('RCA open failed for selected reason row.');
+          });
+        },
         onFooterCsv: (tableState) => {
           const stamp = new Date().toISOString().replace(/[:.]/g, '-');
           downloadEsmCsv({ url: reasonRawEsmUrl, name: `reason-report-raw-${base}-${sourceToken}-${stamp}`, state: tableState, postFilter: (row) => !isReasonNone(row) });
@@ -3703,7 +3890,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       container.appendChild(row);
     }
 
-    function renderGroupRow(container, name) {
+    function renderGroupRow(container, name, win) {
       const row = document.createElement('div');
       row.className = 'row group';
       const label = document.createElement('div');
@@ -3713,7 +3900,8 @@ async function dcrRegisterClient(softwareStatement, appName) {
       row.appendChild(label);
 
       // filler cells to preserve grid columns
-      for (let i=0; i<12; i++) {
+      const cols = Math.max(1, win?.buckets?.length || 12);
+      for (let i=0; i<cols; i++) {
         const c = document.createElement('div');
         c.className = 'hdr';
         c.textContent = '';
@@ -3888,11 +4076,12 @@ async function dcrRegisterClient(softwareStatement, appName) {
         const exact = series.findIndex(pt => pt?.key === requestedKey);
         if (exact >= 0) return exact;
 
-        const normalized = toHourBucketKey(requestedKey);
-        if (normalized && normalized !== requestedKey) {
-          const hourMatch = series.findIndex(pt => pt?.key === normalized);
-          if (hourMatch >= 0) return hourMatch;
-        }
+        const loose = (requestedKey ?? '').toString();
+        const looseMatch = series.findIndex(pt => {
+          const k = (pt?.key ?? '').toString();
+          return k && loose && (k.startsWith(loose) || loose.startsWith(k));
+        });
+        if (looseMatch >= 0) return looseMatch;
       }
 
       // Prefer the latest bucket that actually has computed data.
@@ -3984,6 +4173,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       // Mini heat
       const mini = document.getElementById('rcaMiniHeat');
       clear(mini);
+      mini.style.setProperty('--mini-cols', String(Math.max(1, series.length)));
       series.forEach((pt, idx) => {
         const isSelected = idx === bucketIdx;
         const isLatest = idx === (series.length - 1);
@@ -4201,7 +4391,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     async function drillByRequestor(signal, ctx, bucketKey) {
       const win = computeDrillWindow();
-      const base = DATA_SOURCES.requestor_hour;
+      const base = pickCoreDataSourceUrl('requestor', win);
       const rows = await fetchReport(base, win);
       const scopedRows = filterRowsByCtx(rows, ctx);
       const idx = indexReport(scopedRows, win, ['requestor-id']);
@@ -4218,7 +4408,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     async function drillByMvpd(signal, ctx, bucketKey) {
       const win = computeDrillWindow();
-      const base = DATA_SOURCES.mvpd_hour;
+      const base = pickCoreDataSourceUrl('mvpd', win);
       const rows = await fetchReport(base, win);
       const scopedRows = filterRowsByCtx(rows, ctx);
       const idx = indexReport(scopedRows, win, ['mvpd']);
@@ -4235,7 +4425,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     async function drillByProxy(signal, ctx, bucketKey) {
       const win = computeDrillWindow();
-      const base = DATA_SOURCES.mvpd_hour;
+      const base = pickCoreDataSourceUrl('mvpd', win);
       const rows = await fetchReport(base, win);
       const scopedRows = filterRowsByCtx(rows, ctx);
       const idx = indexReport(scopedRows, win, ['proxy']);
@@ -4255,7 +4445,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
     async function drillByDc(signal, ctx, bucketKey) {
       const win = computeDrillWindow();
-      const base = pickDcDataSourceUrl();
+      const base = pickDcDataSourceUrl(win);
       const rows = await fetchReport(base, win);
       const scopedRows = filterRowsByCtx(rows, ctx);
       const idx = indexReport(scopedRows, win, ['dc']);
@@ -4273,7 +4463,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
     async function drillWithinMvpd(signal, ctx, bucketKey) {
       // Break down selected MVPD by requestor-id
       const win = computeDrillWindow();
-      const base = DATA_SOURCES.mvpd_requestor_hour;
+      const base = pickCoreDataSourceUrl('mvpdRequestor', win);
       const rows = await fetchReport(base, win);
       const mvpd = ctx.dimVal;
 
@@ -4293,7 +4483,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
     async function drillWithinRequestor(signal, ctx, bucketKey) {
       // Break down selected requestor-id by mvpd
       const win = computeDrillWindow();
-      const base = DATA_SOURCES.mvpd_requestor_hour;
+      const base = pickCoreDataSourceUrl('mvpdRequestor', win);
       const rows = await fetchReport(base, win);
       const rid = ctx.dimVal;
 
@@ -4313,7 +4503,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
     async function drillWithinDc(signal, ctx, bucketKey) {
       // Break down selected DC by MVPD
       const win = computeDrillWindow();
-      const base = 'https://mgmt.auth.adobe.com/esm/v3/media-company/year/month/day/hour/proxy/mvpd/dc';
+      const base = pickDcDataSourceUrl(win);
       const rows = await fetchReport(base, win);
       const dc = ctx.dimVal;
 
@@ -5006,10 +5196,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const win = computeDrillWindow();
 
       // Choose a datasource that includes dimKey
-      let base = DATA_SOURCES.overall_hour;
-      if (dimKey === 'requestor-id') base = DATA_SOURCES.requestor_hour;
-      if (dimKey === 'mvpd' || dimKey === 'proxy') base = DATA_SOURCES.mvpd_hour;
-      if (dimKey === 'dc') base = pickDcDataSourceUrl();
+      let base = pickDimDataSourceUrl(dimKey, win);
 
       const rows = await fetchReport(base, win);
 
@@ -5029,14 +5216,10 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const win = computeWindow();
 
       // For raw rows we want a datasource that actually contains the ctx dimension.
-      let base = DATA_SOURCES[signal.ds] || DATA_SOURCES.overall_hour;
-      if (signal.ds === 'dc_hour') base = pickDcDataSourceUrl();
+      let base = pickSignalDataSourceUrl(signal, win);
 
       if (ctx?.dimKey) {
-        if (ctx.dimKey === 'dc') base = pickDcDataSourceUrl();
-        if (ctx.dimKey === 'mvpd') base = DATA_SOURCES.mvpd_hour;
-        if (ctx.dimKey === 'proxy') base = DATA_SOURCES.mvpd_hour;
-        if (ctx.dimKey === 'requestor-id') base = DATA_SOURCES.requestor_hour;
+        base = pickDimDataSourceUrl(ctx.dimKey, win);
       }
 
       const url = appendFilterParams(withTimeParams(base, win));
@@ -5086,9 +5269,9 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const targetKey = normalizeDrillBucketKey(win, bucketKey);
 
       const [mvpdRows, reqRows, dcRows] = await Promise.all([
-        fetchReport(DATA_SOURCES.mvpd_hour, win),
-        fetchReport(DATA_SOURCES.requestor_hour, win),
-        fetchReport(pickDcDataSourceUrl(), win)
+        fetchReport(pickCoreDataSourceUrl('mvpd', win), win),
+        fetchReport(pickCoreDataSourceUrl('requestor', win), win),
+        fetchReport(pickDcDataSourceUrl(win), win)
       ]);
 
       const mvpdIdx = indexReport(mvpdRows, win, ['mvpd']);
@@ -5155,12 +5338,18 @@ async function dcrRegisterClient(softwareStatement, appName) {
       if (!sel) return;
       sel.innerHTML = '';
 
-      // Show "interesting" endpoints first (hour-based)
+      // Show live monitoring tree first: minute -> hour -> day.
       const options = [...ESM_DICTIONARY]
         .slice()
         .sort((a,b) => {
-          const ah = a.url.includes('/hour') ? 0 : 1;
-          const bh = b.url.includes('/hour') ? 0 : 1;
+          const rank = (url) => {
+            if (url.includes('/hour/minute')) return 0;
+            if (url.includes('/day/hour')) return 1;
+            if (url.includes('/day')) return 2;
+            return 3;
+          };
+          const ah = rank(a.url);
+          const bh = rank(b.url);
           if (ah !== bh) return ah - bh;
           return a.url.localeCompare(b.url);
         });
@@ -5212,10 +5401,12 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const view = document.body.getAttribute('data-theme') || 'boom';
       applyTheme(view);
 
+      const unitLabel = win.lookbackUnit === 'day' ? 'd' : win.lookbackUnit === 'minute' ? 'm' : 'h';
+      const dirLabel = win.direction === 'forward' ? 'Next' : 'Last';
       document.getElementById('gridTitle').textContent =
-        `HEATER (${document.getElementById('lookbackHours')?.value || 12} ${
-          (document.getElementById('bucketSize')?.value === 'hour') ? 'hours' : '×15min buckets'
-        })`;
+        `HEATER (${dirLabel} ${win.lookbackValue}${unitLabel} • AUTO ${win.bucketSize.toUpperCase()})`;
+      const bucketTag = document.getElementById('bucketAutoTag');
+      if (bucketTag) bucketTag.textContent = `AUTO: ${win.bucketSize.toUpperCase()}`;
 
       const reqSel = document.getElementById('fltr_requestorid');
         const mvpdSel = document.getElementById('fltr_mvpdId');
@@ -5226,6 +5417,11 @@ async function dcrRegisterClient(softwareStatement, appName) {
         if (reqIds.length) bits.push('requestor-id=' + reqIds.join(','));
         if (mvpdIds.length) bits.push('mvpd=' + mvpdIds.join(','));
         const filtersText = bits.length ? ('Filters: ' + bits.join(' • ')) : 'No filters';
+
+      const overallUrl = pickCoreDataSourceUrl('overall', win);
+      const requestorUrl = pickCoreDataSourceUrl('requestor', win);
+      const mvpdUrl = pickCoreDataSourceUrl('mvpd', win);
+      const dcUrl = pickDcDataSourceUrl(win);
 
       const exportModel = {
         exportedAt: new Date().toISOString(),
@@ -5238,21 +5434,23 @@ async function dcrRegisterClient(softwareStatement, appName) {
         windowStart: win.startIso,
         windowEnd: win.endIso,
         bucketSize: win.bucketSize,
-        lookbackHours: Number(document.getElementById('lookbackHours')?.value || 12),
+        lookbackValue: win.lookbackValue,
+        lookbackUnit: win.lookbackUnit,
+        lookDirection: win.direction,
         filters: { requestorIds: reqIds, mvpdIds: mvpdIds },
         buckets: win.buckets.map(b => ({ key: b.key, label: b.label })),
         rows: []
       };
 
       document.getElementById('gridSubtitle').textContent =
-        `Window: ${win.startIso} → ${win.endIso} • ${filtersText} • v${APP_VERSION}`;
+        `Window: ${win.startIso} → ${win.endIso} • Grain: ${win.bucketSize.toUpperCase()} • Core: ${shortEsmPath(overallUrl)} (${getEsmCols(overallUrl).length} cols) • ${filtersText} • v${APP_VERSION}`;
 
-      // Fetch core data once
+      // Fetch core data once (auto DAY/HR/MIN tree from lookback)
       const [overallRows, reqRows, mvpdRows, dcRows] = await Promise.all([
-        fetchReport(DATA_SOURCES.overall_hour, win),
-        fetchReport(DATA_SOURCES.requestor_hour, win),
-        fetchReport(DATA_SOURCES.mvpd_hour, win),
-        fetchReport(pickDcDataSourceUrl(), win)
+        fetchReport(overallUrl, win),
+        fetchReport(requestorUrl, win),
+        fetchReport(mvpdUrl, win),
+        fetchReport(dcUrl, win)
       ]);
 
       const overallIdx = indexReport(overallRows, win, []);
@@ -5264,6 +5462,8 @@ async function dcrRegisterClient(softwareStatement, appName) {
       const search = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
       const grid = document.getElementById('grid');
       clear(grid);
+      grid.style.setProperty('--bucket-cols', String(Math.max(1, win.buckets.length)));
+      grid.style.minWidth = `${Math.max(900, 340 + (win.buckets.length * 26))}px`;
 
       renderHeaderRow(grid, win);
 
@@ -5280,14 +5480,16 @@ async function dcrRegisterClient(softwareStatement, appName) {
       for (const g of groups) {
         const visible = g.items.filter(s => {
           const hay = (s.label + ' ' + s.story + ' ' + s.group).toLowerCase();
-          return !search || hay.includes(search);
+          if (search && !hay.includes(search)) return false;
+          const sourceUrl = isDcSignal(s) ? dcUrl : overallUrl;
+          return signalSupportedBySource(s, sourceUrl);
         });
         if (!visible.length) continue;
 
-        renderGroupRow(grid, g.name);
+        renderGroupRow(grid, g.name, win);
 
         visible.forEach(sig => {
-          const series = computeSignalSeries(sig, (sig.ds === 'dc_hour') ? dcIdx : overallIdx, win);
+          const series = computeSignalSeries(sig, isDcSignal(sig) ? dcIdx : overallIdx, win);
           renderSignalRow(grid, sig, series, { kind: 'core' });
           exportModel.rows.push(makeExportRow(sig, series, { kind: 'core' }));
           matchCount++;
@@ -5296,11 +5498,12 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
       document.getElementById('matchCount').textContent = matchCount + ' signals';
 
-      renderDcReportPanel(dcIdx, win, getDcSourceLabel());
+      renderDcReportPanel(dcIdx, win, getDcSourceLabel(win));
 
       const deviceReportWrap = document.getElementById('deviceReportWrap');
       if (reqIds.length > 0) {
-        const dayWin = computeDayWindow(7);
+        const daySpan = Math.max(1, Math.min(31, Math.ceil(getWindowDurationMinutes(win) / 1440)));
+        const dayWin = computeDayWindow(daySpan, win.direction);
         const deviceRows = await fetchReport(pickDeviceDataSourceUrl(), dayWin);
         renderDeviceReportPanel(deviceRows, dayWin, getDeviceSourceLabel());
       } else {
@@ -5346,11 +5549,11 @@ async function dcrRegisterClient(softwareStatement, appName) {
                   await openScopedRca(sig, h.dimk, h.dimv, h.bucket);
                 } catch (e) {
                   console.error('[hash restore] scoped RCA failed', e);
-                  const series = computeSignalSeries(sig, (sig.ds === 'dc_hour') ? dcIdx : overallIdx, win);
+                  const series = computeSignalSeries(sig, isDcSignal(sig) ? dcIdx : overallIdx, win);
                   openRca(sig, series, { kind:'core' }, null, h.bucket);
                 }
               } else {
-                const series = computeSignalSeries(sig, (sig.ds === 'dc_hour') ? dcIdx : overallIdx, win);
+                const series = computeSignalSeries(sig, isDcSignal(sig) ? dcIdx : overallIdx, win);
                 openRca(sig, series, { kind:'core' }, null, h.bucket);
               }
             }
@@ -5435,7 +5638,7 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
       const headers = [
         'exported_at','media_company','programmer_id','programmer_name','app_guid','app_name',
-        'view','bucket_size','window_start','window_end',
+        'view','bucket_size','lookback_value','lookback_unit','look_direction','window_start','window_end',
         'filter_requestor_ids','filter_mvpd_ids',
         'group','signal_id','label','story','type','ctx_kind','ctx_dimKey','ctx_dimVal',
         'bucket_key','bucket_label','value','status'
@@ -5456,6 +5659,9 @@ async function dcrRegisterClient(softwareStatement, appName) {
             model.appName,
             model.view,
             model.bucketSize,
+            model.lookbackValue,
+            model.lookbackUnit,
+            model.lookDirection,
             model.windowStart,
             model.windowEnd,
             req,
@@ -5878,14 +6084,10 @@ async function dcrRegisterClient(softwareStatement, appName) {
 
       // Core UX controls
       document.getElementById('btnRefresh')?.addEventListener('click', () => safeRefresh());
-      document.getElementById('lookbackHours')?.addEventListener('change', () => {
-        setupAutoRefresh();
-        safeRefresh();
-      });
-      document.getElementById('bucketSize')?.addEventListener('change', () => {
-        setupAutoRefresh();
-        safeRefresh();
-      });
+      document.getElementById('lookbackValue')?.addEventListener('change', () => { setupAutoRefresh(); safeRefresh(); });
+      document.getElementById('lookbackValue')?.addEventListener('blur', () => { setupAutoRefresh(); safeRefresh(); });
+      document.getElementById('lookbackUnit')?.addEventListener('change', () => { setupAutoRefresh(); safeRefresh(); });
+      document.getElementById('lookDirection')?.addEventListener('change', () => { setupAutoRefresh(); safeRefresh(); });
       document.getElementById('refreshSec')?.addEventListener('change', () => setupAutoRefresh());
       document.getElementById('autoRefresh')?.addEventListener('change', () => setupAutoRefresh());
       document.getElementById('searchBox')?.addEventListener('input', () => safeRefresh());
